@@ -1,0 +1,122 @@
+========version1 trapezoid========
+
+
+from spike import PrimeHub, MotorPair, Motor
+
+# ---------- Ports ----------
+LEFT_MOTOR = 'A'
+RIGHT_MOTOR = 'E'
+
+# ---------- Settings ----------
+DISTANCE = 1000      # total distance, in motor degrees
+MIN_SPEED = 15       # start and end speed (must be above 0)
+MAX_SPEED = 60       # cruising speed
+RAMP_DISTANCE = 300  # distance used to speed up and to slow down
+GSPK = 2             # gyro correction (keeps the robot straight)
+
+hub = PrimeHub()
+motors = MotorPair(LEFT_MOTOR, RIGHT_MOTOR)
+motor = Motor(LEFT_MOTOR)
+
+# Trapezoid profile:
+# speed rises in a straight line, stays constant, then falls in a straight line.
+
+hub.motion_sensor.reset_yaw_angle()
+motor.set_degrees_counted(0)
+distance = 0
+
+while distance < DISTANCE:
+    distance = abs(motor.get_degrees_counted())
+
+    # f goes 0 -> 1 while speeding up, stays 1, then 1 -> 0 while slowing down
+    f = min(1, distance / RAMP_DISTANCE, (DISTANCE - distance) / RAMP_DISTANCE)
+    f = max(0, f)
+    speed = int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * f)
+
+    steering = int((0 - hub.motion_sensor.get_yaw_angle()) * GSPK)
+    motors.start(steering, speed)
+
+motors.stop()
+
+
+========version2 triangle========
+
+
+from spike import PrimeHub, MotorPair, Motor
+
+# ---------- Ports ----------
+LEFT_MOTOR = 'A'
+RIGHT_MOTOR = 'E'
+
+# ---------- Settings ----------
+DISTANCE = 1000      # total distance, in motor degrees
+MIN_SPEED = 15       # start and end speed (must be above 0)
+MAX_SPEED = 60       # top speed, reached exactly in the middle
+GSPK = 2             # gyro correction (keeps the robot straight)
+
+hub = PrimeHub()
+motors = MotorPair(LEFT_MOTOR, RIGHT_MOTOR)
+motor = Motor(LEFT_MOTOR)
+
+# Triangle profile:
+# speed rises in a straight line up to the halfway point,
+# then falls in a straight line. There is no cruising part.
+
+hub.motion_sensor.reset_yaw_angle()
+motor.set_degrees_counted(0)
+distance = 0
+
+while distance < DISTANCE:
+    distance = abs(motor.get_degrees_counted())
+
+    # f goes 0 -> 1 in the first half and 1 -> 0 in the second half
+    f = min(distance, DISTANCE - distance) / (DISTANCE / 2)
+    f = max(0, f)
+    speed = int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * f)
+
+    steering = int((0 - hub.motion_sensor.get_yaw_angle()) * GSPK)
+    motors.start(steering, speed)
+
+motors.stop()
+
+
+========version3 S curve========
+
+
+from spike import PrimeHub, MotorPair, Motor
+
+# ---------- Ports ----------
+LEFT_MOTOR = 'A'
+RIGHT_MOTOR = 'E'
+
+# ---------- Settings ----------
+DISTANCE = 1000      # total distance, in motor degrees
+MIN_SPEED = 15       # start and end speed (must be above 0)
+MAX_SPEED = 60       # cruising speed
+RAMP_DISTANCE = 300  # distance used to speed up and to slow down
+GSPK = 2             # gyro correction (keeps the robot straight)
+
+hub = PrimeHub()
+motors = MotorPair(LEFT_MOTOR, RIGHT_MOTOR)
+motor = Motor(LEFT_MOTOR)
+
+# S-curve profile:
+# like the trapezoid, but the speed changes smoothly (S shape),
+# so the robot starts and stops softly without a jerk.
+
+hub.motion_sensor.reset_yaw_angle()
+motor.set_degrees_counted(0)
+distance = 0
+
+while distance < DISTANCE:
+    distance = abs(motor.get_degrees_counted())
+
+    f = min(1, distance / RAMP_DISTANCE, (DISTANCE - distance) / RAMP_DISTANCE)
+    f = max(0, f)
+    smooth = f * f * (3 - 2 * f)    # turns the straight ramp into an S shape
+    speed = int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * smooth)
+
+    steering = int((0 - hub.motion_sensor.get_yaw_angle()) * GSPK)
+    motors.start(steering, speed)
+
+motors.stop()
