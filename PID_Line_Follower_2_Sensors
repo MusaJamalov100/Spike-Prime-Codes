@@ -1,0 +1,46 @@
+from hub import port
+import motor_pair, color_sensor, runloop
+
+motor_pair.pair(motor_pair.PAIR_1, port.C, port.D)
+
+# Two sensors: A = left sensor, B = right sensor.
+# Put the line BETWEEN the two sensors.
+# If the robot turns the wrong way, change the error line to:
+# error = left - right
+
+KP = 0.4
+KI = 0.0005
+KD = 1
+SPEED = 300
+
+
+async def pid_line_follow_forever():
+    integral = 0
+    last_error = 0
+
+    while True:
+        left = color_sensor.reflection(port.A)
+        right = color_sensor.reflection(port.B)
+
+        # when the line is in the middle, both sensors read the same
+        # and the error is 0
+        error = right - left
+
+        # keep the integral small so it does not grow too much
+        integral = max(-3000, min(3000, integral + error))
+        derivative = error - last_error
+        last_error = error
+
+        correction = int(KP * error + KI * integral + KD * derivative)
+        correction = max(-100, min(100, correction))
+
+        motor_pair.move(motor_pair.PAIR_1, correction, velocity=SPEED)
+
+        # small pause so every loop takes the same time
+        await runloop.sleep_ms(10)
+
+
+async def main():
+    await pid_line_follow_forever()
+
+runloop.run(main())
