@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PID Line Follower - LEGO SPIKE Prime</title>
+<meta name="description" content="PID line follower code for LEGO SPIKE Prime in Python, with 1-sensor and 2-sensor versions.">
+<style>
+:root{--paper:#f7f6f2;--ink:#16181d;--muted:#5b616b;--line:#16181d;--yellow:#ffd400;--code-bg:#16181d;--code-ink:#e8e9ec;--rule:#d9d8d2}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:0 20px 64px}
+h1{font-size:clamp(2rem,6vw,3.4rem);line-height:1.08;margin:0 0 14px;letter-spacing:-.02em}
+h2{font-size:1.45rem;margin:48px 0 10px;letter-spacing:-.01em}
+h3{font-size:1.05rem;margin:22px 0 6px}
+p{max-width:68ch;margin:0 0 12px}
+.lead{font-size:1.15rem;color:var(--muted)}
+.hero{padding:56px 0 8px}
+.track{display:block;width:100%;height:auto;margin:26px 0 0;overflow:visible}
+.track path{fill:none;stroke:var(--line);stroke-width:14;stroke-linecap:round;stroke-linejoin:round}
+.runner{position:relative;width:100%}
+.dot{position:absolute;top:0;left:0;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:var(--yellow);border:3px solid var(--ink);offset-path:path("M20 70 C 140 70, 160 20, 280 20 S 420 110, 540 70 S 680 20, 780 60");offset-rotate:0deg;animation:run 7s ease-in-out infinite alternate}
+@keyframes run{from{offset-distance:0%}to{offset-distance:100%}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none;offset-distance:50%}}
+.tabs{display:flex;gap:8px;margin:18px 0 0;flex-wrap:wrap}
+.tab{font:inherit;font-weight:600;padding:9px 16px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;border-radius:8px}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff}
+.tab:focus-visible,.copy:focus-visible,a:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.panel[hidden]{display:none}
+.codewrap{position:relative;margin:14px 0}
+pre{margin:0;padding:18px;background:var(--code-bg);color:var(--code-ink);border-radius:10px;overflow-x:auto;font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:4}
+.copy{position:absolute;top:10px;right:10px;font:600 13px system-ui,sans-serif;padding:6px 12px;border:0;border-radius:6px;background:var(--yellow);color:var(--ink);cursor:pointer}
+code.i{font:.92em ui-monospace,Menlo,Consolas,monospace;background:#ecebe5;padding:1px 6px;border-radius:4px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.95rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{border-bottom:2px solid var(--ink)}
+.scroll{overflow-x:auto}
+ul,ol{padding-left:22px;margin:0 0 12px}
+li{margin:4px 0}
+footer{margin-top:56px;padding-top:18px;border-top:2px solid var(--ink);color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <h1>PID Line Follower for LEGO SPIKE Prime</h1>
+  <p class="lead">Python code that keeps a SPIKE Prime robot on a black line, smoothly and accurately. Pick the 1-sensor or the 2-sensor version below and copy it into the SPIKE App.</p>
+  <div class="runner" aria-hidden="true">
+    <svg class="track" viewBox="0 0 800 130"><path d="M20 70 C 140 70, 160 20, 280 20 S 420 110, 540 70 S 680 20, 780 60"/></svg>
+    <div class="dot"></div>
+  </div>
+</header>
+
+<h2>Choose a version</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>Version</th><th>Sensors</th><th>Best for</th></tr></thead>
+  <tbody>
+    <tr><td>1 sensor</td><td>1 Color Sensor on port A</td><td>Simple builds. Follows the edge of the line.</td></tr>
+    <tr><td>2 sensors</td><td>Color Sensors on ports A and B</td><td>More stable tracking. Needs no target value.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Code</h2>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" id="t1" aria-selected="true" aria-controls="p1">1 sensor</button>
+  <button class="tab" role="tab" id="t2" aria-selected="false" aria-controls="p2">2 sensors</button>
+</div>
+
+<section class="panel" id="p1" role="tabpanel" aria-labelledby="t1">
+  <p>The sensor follows the edge of the line, so it should see half black and half white. Motors are on ports C and D.</p>
+  <div class="codewrap">
+    <button class="copy" data-target="c1">Copy code</button>
+<pre id="c1">from hub import port
+import motor_pair, color_sensor, runloop
+
+motor_pair.pair(motor_pair.PAIR_1, port.C, port.D)
+
+# Follow the right side of the black line (Black-White edge).
+# To follow the other edge, use: error = reflection - 50
+
+TARGET = 50
+KP = 0.5
+KI = 0.001
+KD = 1
+SPEED = 300
+
+
+async def pid_line_follow_forever():
+    integral = 0
+    last_error = 0
+
+    while True:
+        error = TARGET - color_sensor.reflection(port.A)
+
+        # keep the integral small so it does not grow too much
+        integral = max(-3000, min(3000, integral + error))
+        derivative = error - last_error
+        last_error = error
+
+        correction = int(KP * error + KI * integral + KD * derivative)
+        correction = max(-100, min(100, correction))
+
+        motor_pair.move(motor_pair.PAIR_1, correction, velocity=SPEED)
+
+        # small pause so every loop takes the same time
+        await runloop.sleep_ms(10)
+
+
+async def main():
+    await pid_line_follow_forever()
+
+runloop.run(main())
+</pre>
+  </div>
+</section>
+
+<section class="panel" id="p2" role="tabpanel" aria-labelledby="t2" hidden>
+  <p>Put the line between the two sensors. When the line is centered, both read the same value and the error is zero. If the robot turns the wrong way, change the error line to <code class="i">error = left - right</code>.</p>
+  <div class="codewrap">
+    <button class="copy" data-target="c2">Copy code</button>
+<pre id="c2">from hub import port
+import motor_pair, color_sensor, runloop
+
+motor_pair.pair(motor_pair.PAIR_1, port.C, port.D)
+
+# Two sensors: A = left sensor, B = right sensor.
+# Put the line BETWEEN the two sensors.
+# If the robot turns the wrong way, change the error line to:
+# error = left - right
+
+KP = 0.4
+KI = 0.0005
+KD = 1
+SPEED = 300
+
+
+async def pid_line_follow_forever():
+    integral = 0
+    last_error = 0
+
+    while True:
+        left = color_sensor.reflection(port.A)
+        right = color_sensor.reflection(port.B)
+
+        # when the line is in the middle, both sensors read the same
+        # and the error is 0
+        error = right - left
+
+        # keep the integral small so it does not grow too much
+        integral = max(-3000, min(3000, integral + error))
+        derivative = error - last_error
+        last_error = error
+
+        correction = int(KP * error + KI * integral + KD * derivative)
+        correction = max(-100, min(100, correction))
+
+        motor_pair.move(motor_pair.PAIR_1, correction, velocity=SPEED)
+
+        # small pause so every loop takes the same time
+        await runloop.sleep_ms(10)
+
+
+async def main():
+    await pid_line_follow_forever()
+
+runloop.run(main())
+</pre>
+  </div>
+</section>
+
+<h2>How it works</h2>
+<p>Every 10 milliseconds the program measures how far the robot is from the line (the error) and turns the motors to correct it:</p>
+<pre style="margin-bottom:12px">correction = Kp * error + Ki * integral + Kd * derivative</pre>
+<p>The correction is used as the steering value of the motor pair, limited to -100...100.</p>
+
+<h3>Calibration (1-sensor version)</h3>
+<ol>
+  <li>Place the sensor on white and note the value, for example 90.</li>
+  <li>Place the sensor on the black line and note the value, for example 10.</li>
+  <li>Set <code class="i">TARGET</code> to the middle: (90 + 10) / 2 = 50.</li>
+</ol>
+
+<h2>PID tuning</h2>
+<ol>
+  <li>Set <code class="i">KI</code> and <code class="i">KD</code> to 0. Raise <code class="i">KP</code> until the robot starts to oscillate.</li>
+  <li>Raise <code class="i">KD</code> to reduce the oscillation.</li>
+  <li>If needed, add a very small <code class="i">KI</code>.</li>
+</ol>
+<div class="scroll">
+<table>
+  <thead><tr><th>Constant</th><th>Role</th><th>If too high</th></tr></thead>
+  <tbody>
+    <tr><td>KP</td><td>Reacts directly to the error</td><td>Robot oscillates</td></tr>
+    <tr><td>KI</td><td>Corrects accumulated error</td><td>Robot becomes unstable</td></tr>
+    <tr><td>KD</td><td>Reacts to how fast the error changes</td><td>Robot jitters</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Troubleshooting</h2>
+<ul>
+  <li><strong>Robot loses the line:</strong> lower <code class="i">SPEED</code> or raise <code class="i">KP</code>.</li>
+  <li><strong>Robot oscillates too much:</strong> lower <code class="i">KP</code> and raise <code class="i">KD</code>.</li>
+  <li><strong>Robot turns the wrong way:</strong> flip the sign of the error or check the motor ports.</li>
+  <li><strong>Readings are unstable:</strong> check the sensor height above the floor and reduce room light.</li>
+</ul>
+
+<footer>Made by Musa Jamalov</footer>
+</main>
+
+<script>
+(function(){
+  var tabs=document.querySelectorAll('.tab');
+  tabs.forEach(function(t){
+    t.addEventListener('click',function(){
+      tabs.forEach(function(o){
+        var on=o===t;
+        o.setAttribute('aria-selected',on);
+        document.getElementById(o.getAttribute('aria-controls')).hidden=!on;
+      });
+    });
+  });
+  document.querySelectorAll('.copy').forEach(function(b){
+    b.addEventListener('click',function(){
+      var text=document.getElementById(b.dataset.target).textContent;
+      function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy code'},1500)}
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done,fallback);
+      }else{fallback()}
+      function fallback(){
+        var a=document.createElement('textarea');a.value=text;document.body.appendChild(a);a.select();
+        try{document.execCommand('copy');done()}catch(e){}
+        document.body.removeChild(a);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
