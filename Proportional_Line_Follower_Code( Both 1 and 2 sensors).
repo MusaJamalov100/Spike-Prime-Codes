@@ -1,0 +1,83 @@
+# 1 sensor code
+from spike import PrimeHub, ColorSensor, MotorPair
+
+# ---------- Ports ----------
+SENSOR_PORT = 'F'
+LEFT_MOTOR = 'A'
+RIGHT_MOTOR = 'E'
+
+# ---------- Settings ----------
+TARGET = 50       # midpoint between the white and black readings
+KP = 0.3          # proportional gain
+BASE_SPEED = 40   # speed on a straight line (-100 to 100)
+
+hub = PrimeHub()
+color = ColorSensor(SENSOR_PORT)
+motor_pair = MotorPair(LEFT_MOTOR, RIGHT_MOTOR)
+
+
+def clamp(value, low=-100, high=100):
+    # keep the speed inside the range the motors accept
+    return max(low, min(high, value))
+
+
+# Press the LEFT button on the hub to stop the robot.
+# If the robot turns away from the line, change the error line to:
+# error = TARGET - color.get_reflected_light()
+while not hub.left_button.is_pressed():
+    error = color.get_reflected_light() - TARGET
+    correction = KP * error
+
+    # int() is used because the motors need whole-number speeds
+    left_speed = clamp(int(BASE_SPEED + correction))
+    right_speed = clamp(int(BASE_SPEED - correction))
+
+    motor_pair.start_tank(left_speed, right_speed)
+
+motor_pair.stop()
+
+
+# 2 sensor code
+from spike import PrimeHub, ColorSensor, MotorPair
+
+# ---------- Ports ----------
+LEFT_SENSOR_PORT = 'F'
+RIGHT_SENSOR_PORT = 'B'
+LEFT_MOTOR = 'A'
+RIGHT_MOTOR = 'E'
+
+# ---------- Settings ----------
+KP = 0.3          # proportional gain
+BASE_SPEED = 40   # speed on a straight line (-100 to 100)
+
+hub = PrimeHub()
+left_color = ColorSensor(LEFT_SENSOR_PORT)
+right_color = ColorSensor(RIGHT_SENSOR_PORT)
+motor_pair = MotorPair(LEFT_MOTOR, RIGHT_MOTOR)
+
+
+def clamp(value, low=-100, high=100):
+    # keep the speed inside the range the motors accept
+    return max(low, min(high, value))
+
+
+# Put the line BETWEEN the two sensors.
+# Press the LEFT button on the hub to stop the robot.
+# If the robot turns away from the line, change the error line to:
+# error = left - right
+while not hub.left_button.is_pressed():
+    left = left_color.get_reflected_light()
+    right = right_color.get_reflected_light()
+
+    # when the line is in the middle, both sensors read the same
+    # and the error is 0
+    error = right - left
+    correction = KP * error
+
+    # int() is used because the motors need whole-number speeds
+    left_speed = clamp(int(BASE_SPEED + correction))
+    right_speed = clamp(int(BASE_SPEED - correction))
+
+    motor_pair.start_tank(left_speed, right_speed)
+
+motor_pair.stop()
